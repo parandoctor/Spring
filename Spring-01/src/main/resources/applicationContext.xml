@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd
+           http://www.springframework.org/schema/context
+           http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!-- ============================================
+         Spring 核心容器 XML 配置 → ApplicationContext
+         演示：Bean定义、DI注入、作用域、工厂、生命周期
+         ============================================ -->
+
+    <!-- 激活 @PostConstruct / @PreDestroy 注解 -->
+    <context:annotation-config/>
+
+    <!-- ==================== 1. 基本 Bean 定义（Setter 注入） ==================== -->
+    <bean id="user" class="com.spring.demo.beans.User">
+        <property name="id" value="1001"/>
+        <property name="name" value="张三"/>
+        <property name="email" value="zhangsan@spring.com"/>
+    </bean>
+
+    <!-- ==================== 2. 构造器注入 ==================== -->
+    <bean id="order" class="com.spring.demo.beans.Order">
+        <constructor-arg index="0" value="ORD-20240001"/>
+        <constructor-arg index="1" value="299.99"/>
+        <constructor-arg index="2" value="MacBook Pro"/>
+    </bean>
+
+    <!-- ==================== 3. ref 引用注入（DI 依赖注入） ==================== -->
+    <bean id="userDao" class="com.spring.demo.beans.UserDao"/>
+
+    <bean id="userService" class="com.spring.demo.beans.UserService">
+        <property name="userDao" ref="userDao"/>
+    </bean>
+
+    <!-- ==================== 4. Bean 作用域演示 ==================== -->
+    <!-- singleton（默认）：容器中只有一个实例 -->
+    <bean id="singletonBean" class="com.spring.demo.beans.User" scope="singleton">
+        <property name="name" value="单例Bean"/>
+    </bean>
+
+    <!-- prototype：每次获取都创建新实例 -->
+    <bean id="prototypeBean" class="com.spring.demo.beans.User" scope="prototype">
+        <property name="name" value="原型Bean"/>
+    </bean>
+
+    <!-- ==================== 5. 静态工厂实例化 ==================== -->
+    <bean id="carByStaticFactory" class="com.spring.demo.factory.StaticCarFactory"
+          factory-method="createCar"/>
+
+    <!-- ==================== 6. 实例工厂实例化 ==================== -->
+    <bean id="instanceCarFactory" class="com.spring.demo.factory.InstanceCarFactory"/>
+    <bean id="carByInstanceFactory" factory-bean="instanceCarFactory"
+          factory-method="createCar"/>
+
+    <!-- ==================== 7. FactoryBean 方式 ==================== -->
+    <bean id="carByFactoryBean" class="com.spring.demo.factory.CarFactoryBean">
+        <property name="brand" value="Mercedes-Benz"/>
+        <property name="color" value="Silver"/>
+        <property name="price" value="520000.0"/>
+    </bean>
+
+    <!-- ==================== 8. 生命周期演示 ==================== -->
+    <bean id="lifecycleBean" class="com.spring.demo.lifecycle.LifecycleBean"
+          init-method="customInit" destroy-method="customDestroy">
+        <property name="data" value="hello-spring-lifecycle"/>
+    </bean>
+
+    <!-- BeanPostProcessor 作用于所有 Bean -->
+    <bean id="customBeanPostProcessor"
+          class="com.spring.demo.lifecycle.CustomBeanPostProcessor"/>
+
+</beans>
