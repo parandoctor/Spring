@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="
+           http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!-- ============================================
+         Spring AOP — 接口方式（Spring API）
+         通过 ProxyFactoryBean / BeanNameAutoProxyCreator
+         直接实现 Spring AOP 的通知接口
+         ============================================ -->
+
+    <!-- 目标对象 -->
+    <bean id="userServiceTarget" class="com.spring.demo.service.UserServiceImpl"/>
+
+    <!-- 通知 Bean（实现 Spring API 接口） -->
+    <bean id="logBeforeAdvice" class="com.spring.demo.aopapi.LogBeforeAdvice"/>
+    <bean id="logAfterReturningAdvice" class="com.spring.demo.aopapi.LogAfterReturningAdvice"/>
+    <bean id="logAroundInterceptor" class="com.spring.demo.aopapi.LogAroundInterceptor"/>
+    <bean id="logThrowsAdvice" class="com.spring.demo.aopapi.LogThrowsAdvice"/>
+
+    <!--
+        方式一：ProxyFactoryBean — 为单个 Bean 创建代理
+        适用于精确控制某个 Bean 的代理行为
+    -->
+    <bean id="userServiceProxy" class="org.springframework.aop.framework.ProxyFactoryBean">
+        <!-- 代理的接口 -->
+        <property name="proxyInterfaces" value="com.spring.demo.service.UserService"/>
+        <!-- 目标对象 -->
+        <property name="target" ref="userServiceTarget"/>
+        <!-- 拦截器链（通知列表） -->
+        <property name="interceptorNames">
+            <list>
+                <value>logBeforeAdvice</value>
+                <value>logAfterReturningAdvice</value>
+                <value>logAroundInterceptor</value>
+                <value>logThrowsAdvice</value>
+            </list>
+        </property>
+    </bean>
+
+</beans>

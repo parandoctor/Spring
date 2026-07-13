@@ -1,7 +1,6 @@
 # Spring Framework 入门指南
 
-> **Spring-01 项目配套文档** | 基于 Spring Framework 6.1.x + Java 17  
-> 涵盖：Spring 概述 → 核心容器 → DI/IoC → Bean 详解 → 面试题
+> **Spring-01 项目文档** | 基于 Spring Framework 6.1.x + Java 17  
 
 ---
 
