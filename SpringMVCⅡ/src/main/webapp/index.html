@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring MVC 进阶 — Axios 前后端交互演示</title>
+    <!-- 引入 Axios CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+        .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+        h1 { text-align: center; color: #1a73e8; margin-bottom: 30px; }
+        .section {
+            background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .section h2 { font-size: 18px; color: #1a73e8; margin-bottom: 15px; border-bottom: 2px solid #e8f0fe; padding-bottom: 8px; }
+        button {
+            background: #1a73e8; color: white; border: none; padding: 8px 16px;
+            border-radius: 4px; cursor: pointer; margin: 4px; font-size: 14px;
+        }
+        button:hover { background: #1557b0; }
+        button.danger { background: #d93025; }
+        button.danger:hover { background: #b3261e; }
+        button.success { background: #188038; }
+        input, textarea {
+            padding: 8px; border: 1px solid #dadce0; border-radius: 4px;
+            font-size: 14px; margin: 4px; width: calc(100% - 16px);
+        }
+        .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .row input { flex: 1; min-width: 120px; }
+        pre {
+            background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 4px;
+            font-size: 13px; overflow-x: auto; max-height: 300px; overflow-y: auto;
+            margin-top: 10px;
+        }
+        .token-display {
+            background: #fff3cd; padding: 8px 12px; border-radius: 4px;
+            margin-bottom: 10px; font-size: 13px; word-break: break-all;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e0e0e0; font-size: 14px; }
+        th { background: #e8f0fe; color: #1a73e8; }
+        .http-method {
+            display: inline-block; padding: 2px 8px; border-radius: 3px;
+            font-size: 12px; font-weight: bold; color: white; margin-right: 6px;
+        }
+        .get { background: #188038; }
+        .post { background: #1a73e8; }
+        .put { background: #e37400; }
+        .delete { background: #d93025; }
+        .patch { background: #9334e6; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🚀 Spring MVC 进阶 — Axios 前后端交互演示</h1>
+
+    <!-- Token 状态 -->
+    <div class="section">
+        <h2>🔑 认证状态</h2>
+        <div class="token-display" id="tokenStatus">未登录 — 请先登录获取 Token</div>
+        <div class="row">
+            <input type="text" id="loginUsername" placeholder="用户名 (admin)" value="admin">
+            <input type="password" id="loginPassword" placeholder="密码 (123456)" value="123456">
+            <button onclick="login()">登录</button>
+        </div>
+    </div>
+
+    <!-- ==================== RESTful CRUD ==================== -->
+    <div class="section">
+        <h2>📋 用户列表（GET /api/users）</h2>
+        <button onclick="getUsers()">刷新用户列表</button>
+        <table id="userTable">
+            <thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>年龄</th><th>操作</th></tr></thead>
+            <tbody><tr><td colspan="5" style="text-align:center;color:#999;">点击"刷新用户列表"加载数据</td></tr></tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>➕ 新增用户（POST /api/users）</h2>
+        <div class="row">
+            <input type="text" id="newUsername" placeholder="用户名">
+            <input type="email" id="newEmail" placeholder="邮箱">
+            <input type="number" id="newAge" placeholder="年龄" style="width:80px;">
+            <button class="success" onclick="createUser()">新增</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>✏️ 更新用户（PUT / PATCH）</h2>
+        <div class="row">
+            <input type="number" id="updateId" placeholder="用户ID" style="width:80px;">
+            <input type="text" id="updateUsername" placeholder="新用户名">
+            <input type="email" id="updateEmail" placeholder="新邮箱">
+            <input type="number" id="updateAge" placeholder="新年龄" style="width:80px;">
+            <button onclick="updateUser()">PUT 全量更新</button>
+            <button class="success" onclick="patchUser()">PATCH 局部更新</button>
+        </div>
+    </div>
+
+    <!-- ==================== 文件上传下载 ==================== -->
+    <div class="section">
+        <h2>📁 文件上传 & 下载</h2>
+        <div class="row">
+            <input type="file" id="uploadFile" style="width:auto;">
+            <button class="success" onclick="uploadFile()">上传文件</button>
+        </div>
+        <div class="row" style="margin-top:8px;">
+            <input type="file" id="uploadFiles" multiple style="width:auto;">
+            <button class="success" onclick="uploadMultiFiles()">批量上传</button>
+        </div>
+        <button onclick="listFiles()" style="margin-top:8px;">查看已上传文件列表</button>
+        <table id="fileTable" style="margin-top:10px;">
+            <thead><tr><th>文件名</th><th>大小</th><th>操作</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- ==================== 响应结果 ==================== -->
+    <div class="section">
+        <h2>📊 响应结果</h2>
+        <pre id="responseBox">等待请求...</pre>
+    </div>
+</div>
+
+<script>
+    // ==================== Axios 全局配置 ====================
+    let authToken = '';
+
+    // 创建 Axios 实例（统一配置）
+    const api = axios.create({
+        baseURL: '/spring-mvc-advanced',  // 项目上下文路径
+        timeout: 10000,
+        headers: { 'Content-Type': 'application/json' }
+    });
+
+    // 请求拦截器：自动附带 Token
+    api.interceptors.request.use(config => {
+        if (authToken) {
+            config.headers.Authorization = authToken;
+        }
+        return config;
+    });
+
+    // 响应拦截器：统一处理错误
+    api.interceptors.response.use(
+        response => {
+            showResponse(response.data);
+            return response;
+        },
+        error => {
+            const msg = error.response?.data || { code: 500, message: error.message };
+            showResponse(msg);
+            if (error.response?.status === 401) {
+                authToken = '';
+                updateTokenStatus();
+            }
+            return Promise.reject(error);
+        }
+    );
+
+    function showResponse(data) {
+        document.getElementById('responseBox').textContent = JSON.stringify(data, null, 2);
+    }
+
+    // ==================== 认证 ====================
+    async function login() {
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+        try {
+            const res = await api.post('/api/users/login', { username, password });
+            authToken = res.data.data.token;
+            updateTokenStatus();
+        } catch(e) {}
+    }
+
+    function updateTokenStatus() {
+        const el = document.getElementById('tokenStatus');
+        if (authToken) {
+            el.innerHTML = '✅ 已登录 — Token: <code>' + authToken + '</code>';
+        } else {
+            el.innerHTML = '❌ 未登录 — 请先登录获取 Token';
+        }
+    }
+
+    // ==================== CRUD ====================
+    async function getUsers() {
+        try {
+            const res = await api.get('/api/users');
+            const users = res.data.data;
+            const tbody = document.querySelector('#userTable tbody');
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;">暂无用户</td></tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>${u.id}</td><td>${u.username}</td><td>${u.email}</td><td>${u.age}</td>
+                    <td>
+                        <button style="font-size:12px;padding:4px 8px;" onclick="fillUpdate(${u.id},'${u.username}','${u.email}',${u.age})">编辑</button>
+                        <button class="danger" style="font-size:12px;padding:4px 8px;" onclick="deleteUser(${u.id})">删除</button>
+                    </td>
+                </tr>
+            `).join('');
+        } catch(e) {}
+    }
+
+    function fillUpdate(id, username, email, age) {
+        document.getElementById('updateId').value = id;
+        document.getElementById('updateUsername').value = username;
+        document.getElementById('updateEmail').value = email;
+        document.getElementById('updateAge').value = age;
+    }
+
+    async function createUser() {
+        const data = {
+            username: document.getElementById('newUsername').value,
+            email: document.getElementById('newEmail').value,
+            age: parseInt(document.getElementById('newAge').value) || 0
+        };
+        try { await api.post('/api/users', data); getUsers(); } catch(e) {}
+    }
+
+    async function updateUser() {
+        const id = document.getElementById('updateId').value;
+        const data = {
+            username: document.getElementById('updateUsername').value,
+            email: document.getElementById('updateEmail').value,
+            age: parseInt(document.getElementById('updateAge').value) || 0
+        };
+        try { await api.put('/api/users/' + id, data); getUsers(); } catch(e) {}
+    }
+
+    async function patchUser() {
+        const id = document.getElementById('updateId').value;
+        const data = {};
+        const username = document.getElementById('updateUsername').value;
+        const email = document.getElementById('updateEmail').value;
+        const age = document.getElementById('updateAge').value;
+        if (username) data.username = username;
+        if (email) data.email = email;
+        if (age) data.age = parseInt(age);
+        try { await api.patch('/api/users/' + id, data); getUsers(); } catch(e) {}
+    }
+
+    async function deleteUser(id) {
+        if (!confirm('确认删除用户 id=' + id + '?')) return;
+        try { await api.delete('/api/users/' + id); getUsers(); } catch(e) {}
+    }
+
+    // ==================== 文件上传（使用 FormData） ====================
+    async function uploadFile() {
+        const fileInput = document.getElementById('uploadFile');
+        const file = fileInput.files[0];
+        if (!file) { alert('请选择文件'); return; }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await api.post('/files/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            listFiles();
+        } catch(e) {}
+    }
+
+    async function uploadMultiFiles() {
+        const fileInput = document.getElementById('uploadFiles');
+        if (fileInput.files.length === 0) { alert('请选择文件'); return; }
+
+        const formData = new FormData();
+        for (let file of fileInput.files) {
+            formData.append('files', file);
+        }
+
+        try {
+            const res = await api.post('/files/upload-multi', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            listFiles();
+        } catch(e) {}
+    }
+
+    async function listFiles() {
+        try {
+            const res = await api.get('/files/list');
+            const files = res.data.data;
+            const tbody = document.querySelector('#fileTable tbody');
+            if (!files || files.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#999;">暂无文件</td></tr>';
+                return;
+            }
+            tbody.innerHTML = files.map(f => `
+                <tr>
+                    <td>${f.filename}</td>
+                    <td>${(f.size / 1024).toFixed(1)} KB</td>
+                    <td>
+                        <a href="/spring-mvc-advanced${f.downloadUrl}" download>下载</a>
+                    </td>
+                </tr>
+            `).join('');
+        } catch(e) {}
+    }
+</script>
+</body>
+</html>
