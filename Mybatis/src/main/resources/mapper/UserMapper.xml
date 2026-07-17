@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    MyBatis 映射文件（UserMapper.xml）
+
+    核心结构：
+    - namespace：绑定 Mapper 接口全限定名（必须一致！）
+    - <select>/<insert>/<update>/<delete>：四大 SQL 标签
+    - <sql>：可复用 SQL 片段
+    - <resultMap>：自定义结果映射（解决字段名不一致、关联查询等问题）
+    - 动态 SQL：<if>、<where>、<set>、<foreach>、<choose>、<trim>
+
+    参数占位符：
+    - #{xxx}：预编译占位符（防止 SQL 注入，推荐）
+    - ${xxx}：字符串拼接（有注入风险，仅用于动态表名/列名）
+-->
+<mapper namespace="com.spring.demo.mapper.UserMapper">
+
+    <!-- ==================== 可复用 SQL 片段 ==================== -->
+    <sql id="baseColumns">
+        id, username, email, age, create_time
+    </sql>
+
+    <!-- ==================== ResultMap：自定义结果映射 ==================== -->
+    <!--
+        当数据库字段与 Java 属性名不一致时有两种方案：
+        1. mapUnderscoreToCamelCase = true（推荐，简单场景）
+        2. <resultMap> 显式映射（复杂场景：关联查询、构造器注入）
+    -->
+    <resultMap id="userResultMap" type="com.spring.demo.model.User">
+        <id property="id" column="id"/>
+        <result property="username" column="username"/>
+        <result property="email" column="email"/>
+        <result property="age" column="age"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <!-- ==================== 增 (INSERT) ==================== -->
+
+    <!--
+        基本新增：
+        - useGeneratedKeys="true"：使用数据库自增主键
+        - keyProperty="id"：将生成的主键回填到 User 对象的 id 属性
+    -->
+    <insert id="insert" parameterType="com.spring.demo.model.User"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users(username, email, age)
+        VALUES (#{username}, #{email}, #{age})
+    </insert>
+
+    <!--
+        批量新增：
+        - <foreach> 遍历集合，生成多组 VALUES
+        - collection="users" 对应 @Param("users") 或 List 默认名 "list"
+        - separator="," 每组值之间用逗号分隔
+    -->
+    <insert id="batchInsert" parameterType="java.util.List"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users(username, email, age) VALUES
+        <foreach collection="users" item="user" separator=",">
+            (#{user.username}, #{user.email}, #{user.age})
+        </foreach>
+    </insert>
+
+    <!-- ==================== 删 (DELETE) ==================== -->
+
+    <!-- 根据 ID 删除 -->
+    <delete id="deleteById" parameterType="long">
+        DELETE FROM users WHERE id = #{id}
+    </delete>
+
+    <!--
+        批量删除：
+        - open="(" close=")" 给 IN 子句加上括号
+        - item="id"：每次迭代的变量名
+    -->
+    <delete id="deleteByIds">
+        DELETE FROM users WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- ==================== 改 (UPDATE) ==================== -->
+
+    <!-- 全字段更新 -->
+    <update id="update" parameterType="com.spring.demo.model.User">
+        UPDATE users
+        SET username = #{username},
+            email    = #{email},
+            age      = #{age}
+        WHERE id = #{id}
+    </update>
+
+    <!--
+        动态更新（只更新非空字段）：
+        - <set> 标签：自动处理 SET 子句末尾多余的逗号
+        - <if test="xxx != null">：只拼接待更新的字段
+    -->
+    <update id="updateSelective" parameterType="com.spring.demo.model.User">
+        UPDATE users
+        <set>
+            <if test="username != null and username != ''">
+                username = #{username},
+            </if>
+            <if test="email != null and email != ''">
+                email = #{email},
+            </if>
+            <if test="age != null">
+                age = #{age},
+            </if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- ==================== 查 (SELECT) ==================== -->
+
+    <!-- 根据 ID 查询 —— 使用 resultMap 显式映射 -->
+    <select id="findById" parameterType="long" resultMap="userResultMap">
+        SELECT <include refid="baseColumns"/>
+        FROM users
+        WHERE id = #{id}
+    </select>
+
+    <!-- 查询所有用户 —— 使用自动驼峰映射会更简单 -->
+    <select id="findAll" resultType="com.spring.demo.model.User">
+        SELECT <include refid="baseColumns"/>
+        FROM users
+        ORDER BY id DESC
+    </select>
+
+    <!--
+        模糊查询：
+        - CONCAT 拼接 % 通配符
+        - #{} 预编译，安全防注入
+    -->
+    <select id="findByUsername" resultType="com.spring.demo.model.User">
+        SELECT <include refid="baseColumns"/>
+        FROM users
+        WHERE username LIKE CONCAT('%', #{username}, '%')
+    </select>
+
+    <!--
+        ╔══════════════════════════════════════════════╗
+        ║        动态 SQL —— 条件查询                   ║
+        ╚══════════════════════════════════════════════╝
+
+        <where> 标签：
+        - 自动添加 WHERE 关键字
+        - 自动去除第一个有效的 AND/OR
+        - 如果所有 <if> 都不满足，不生成 WHERE 子句
+    -->
+    <select id="findByCondition" resultType="com.spring.demo.model.User">
+        SELECT <include refid="baseColumns"/>
+        FROM users
+        <where>
+            <if test="username != null and username != ''">
+                AND username LIKE CONCAT('%', #{username}, '%')
+            </if>
+            <if test="email != null and email != ''">
+                AND email = #{email}
+            </if>
+            <if test="minAge != null">
+                AND age &gt;= #{minAge}
+            </if>
+            <if test="maxAge != null">
+                AND age &lt;= #{maxAge}
+            </if>
+        </where>
+        ORDER BY id
+    </select>
+
+    <!-- 统计总数 -->
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM users
+    </select>
+
+</mapper>
