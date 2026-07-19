@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+
+<!--
+    MyBatis 主配置文件（Mybatis-02 进阶项目）
+
+    重点配置：
+    1. lazyLoadingEnabled —— 延迟加载（关联映射核心配置）
+    2. aggressiveLazyLoading —— 按需加载（false = 只有真正访问关联属性时才加载）
+    3. mapUnderscoreToCamelCase —— 驼峰映射
+-->
+<configuration>
+
+    <settings>
+        <!-- 驼峰命名自动映射 -->
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+
+        <!-- ★ 延迟加载开关：关联映射的核心配置 -->
+        <setting name="lazyLoadingEnabled" value="true"/>
+
+        <!-- ★ 按需加载：false = 只有访问关联属性时才触发查询（true = 只要加载主对象就加载所有关联） -->
+        <setting name="aggressiveLazyLoading" value="false"/>
+
+        <!-- SQL 日志输出到控制台 -->
+        <setting name="logImpl" value="STDOUT_LOGGING"/>
+
+        <!-- 缓存开关 -->
+        <setting name="cacheEnabled" value="true"/>
+    </settings>
+
+    <typeAliases>
+        <typeAlias type="com.spring.demo.model.User" alias="User"/>
+        <typeAlias type="com.spring.demo.model.Order" alias="Order"/>
+        <typeAlias type="com.spring.demo.model.OrderItem" alias="OrderItem"/>
+        <typeAlias type="com.spring.demo.model.Role" alias="Role"/>
+    </typeAliases>
+
+</configuration>

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    UserMapper.xml —— 用户映射文件
+
+    本文件重点演示 MyBatis 关联映射的三种方式：
+    1. 嵌套结果映射（<association>、<collection> 直接在一条 SQL 中用 JOIN 查出）
+    2. 嵌套查询（<association> + select、<collection> + select，分步查询）
+    3. 延迟加载（lazyLoadingEnabled=true 配合嵌套查询）
+-->
+<mapper namespace="com.spring.demo.mapper.UserMapper">
+
+    <!-- ==================== 可复用 SQL 片段 ==================== -->
+    <sql id="userColumns">
+        id, username, email, age, create_time
+    </sql>
+
+    <!-- ==================== 基础 ResultMap ==================== -->
+    <resultMap id="userResultMap" type="com.spring.demo.model.User">
+        <id property="id"         column="id"/>
+        <result property="username"   column="username"/>
+        <result property="email"      column="email"/>
+        <result property="age"        column="age"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <!-- ==================== 基础 CRUD ==================== -->
+    <insert id="insert" parameterType="com.spring.demo.model.User"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO users(username, email, age)
+        VALUES (#{username}, #{email}, #{age})
+    </insert>
+
+    <select id="findById" parameterType="long" resultMap="userResultMap">
+        SELECT <include refid="userColumns"/> FROM users WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultMap="userResultMap">
+        SELECT <include refid="userColumns"/> FROM users
+    </select>
+
+    <!--
+        ==================== 1. 一对多关联查询 ====================
+
+        方式一：嵌套结果映射（Nested Results）
+        - 使用一条 SQL + LEFT JOIN 直接查出用户和订单
+        - <collection> 标签映射"多"的一方
+        - 优点：一次查询完成，性能好（推荐用于数据量不大的场景）
+
+        方式二：嵌套查询（Nested Select）
+        - 先查用户，再通过 select 属性调用另一个查询获取订单
+        - 优点：支持延迟加载，可复用已有查询
+        - 缺点：N+1 查询问题
+    -->
+
+    <!--
+        一对多 - 嵌套结果映射：
+        一条 JOIN 查询同时查出用户和其所有订单
+    -->
+    <resultMap id="userWithOrdersMap" type="com.spring.demo.model.User" extends="userResultMap">
+        <!--
+            <collection>：映射一对多关系
+            - property:  User 类中的集合属性名
+            - ofType:    集合中元素的类型（Order）
+            - column:    关联的外键列（此处是 users.id = orders.user_id）
+        -->
+        <collection property="orders" ofType="com.spring.demo.model.Order"
+                    columnPrefix="ord_">
+            <id property="id"          column="id"/>
+            <result property="orderNo"     column="order_no"/>
+            <result property="userId"      column="user_id"/>
+            <result property="totalAmount" column="total_amount"/>
+            <result property="status"      column="status"/>
+            <result property="createTime"  column="create_time"/>
+        </collection>
+    </resultMap>
+
+    <select id="findUserWithOrders" parameterType="long" resultMap="userWithOrdersMap">
+        SELECT
+            u.id, u.username, u.email, u.age, u.create_time,
+            o.id           AS ord_id,
+            o.order_no     AS ord_order_no,
+            o.user_id      AS ord_user_id,
+            o.total_amount AS ord_total_amount,
+            o.status       AS ord_status,
+            o.create_time  AS ord_create_time
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        WHERE u.id = #{id}
+    </select>
+
+    <!--
+        ==================== 2. 多对多关联查询 ====================
+
+        用户 ↔ 角色（多对多），通过 user_role 中间表关联。
+    -->
+    <resultMap id="userWithRolesMap" type="com.spring.demo.model.User" extends="userResultMap">
+        <collection property="roles" ofType="com.spring.demo.model.Role"
+                    columnPrefix="role_">
+            <id property="id"          column="id"/>
+            <result property="roleName"    column="role_name"/>
+            <result property="description" column="description"/>
+        </collection>
+    </resultMap>
+
+    <select id="findUserWithRoles" parameterType="long" resultMap="userWithRolesMap">
+        SELECT
+            u.id, u.username, u.email, u.age, u.create_time,
+            r.id          AS role_id,
+            r.role_name   AS role_role_name,
+            r.description AS role_description
+        FROM users u
+        LEFT JOIN user_role ur ON u.id = ur.user_id
+        LEFT JOIN roles r ON ur.role_id = r.id
+        WHERE u.id = #{id}
+    </select>
+
+    <!--
+        ==================== 3. 嵌套查询（分步加载，支持延迟加载） ====================
+
+        先查用户 → 再分别查订单和角色
+        配合 mybatis-config.xml 中的 lazyLoadingEnabled=true 实现按需加载
+    -->
+    <resultMap id="userLazyMap" type="com.spring.demo.model.User" extends="userResultMap">
+        <!--
+            嵌套查询方式的 <collection>：
+            - select:  指定执行哪个查询来获取关联数据
+            - column:  传给 select 查询的参数列
+            - fetchType: lazy（延迟）/ eager（立即），可覆盖全局 lazyLoadingEnabled 设置
+        -->
+        <collection property="orders"
+                    select="com.spring.demo.mapper.OrderMapper.findByUserId"
+                    column="id"
+                    fetchType="lazy"/>
+        <collection property="roles"
+                    select="com.spring.demo.mapper.RoleAnnoMapper.findByUserId"
+                    column="id"
+                    fetchType="lazy"/>
+    </resultMap>
+
+    <select id="findUserWithOrdersAndRoles" parameterType="long" resultMap="userLazyMap">
+        SELECT <include refid="userColumns"/> FROM users WHERE id = #{id}
+    </select>
+
+    <!-- 根据角色ID查询用户 -->
+    <select id="findUsersByRoleId" parameterType="long" resultMap="userResultMap">
+        SELECT u.id, u.username, u.email, u.age, u.create_time
+        FROM users u
+        INNER JOIN user_role ur ON u.id = ur.user_id
+        WHERE ur.role_id = #{roleId}
+    </select>
+
+</mapper>

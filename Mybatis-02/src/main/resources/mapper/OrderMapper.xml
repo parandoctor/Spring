@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    OrderMapper.xml —— 订单映射文件
+
+    重点演示 <association>（多对一）和 <collection>（一对多）
+-->
+<mapper namespace="com.spring.demo.mapper.OrderMapper">
+
+    <!-- ==================== 可复用 SQL 片段 ==================== -->
+    <sql id="orderColumns">
+        id, order_no, user_id, total_amount, status, create_time
+    </sql>
+
+    <!-- ==================== 基础 ResultMap ==================== -->
+    <resultMap id="orderResultMap" type="com.spring.demo.model.Order">
+        <id property="id"          column="id"/>
+        <result property="orderNo"     column="order_no"/>
+        <result property="userId"      column="user_id"/>
+        <result property="totalAmount" column="total_amount"/>
+        <result property="status"      column="status"/>
+        <result property="createTime"  column="create_time"/>
+    </resultMap>
+
+    <!-- ==================== 基础 CRUD ==================== -->
+    <insert id="insert" parameterType="com.spring.demo.model.Order"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO orders(order_no, user_id, total_amount, status)
+        VALUES (#{orderNo}, #{userId}, #{totalAmount}, #{status})
+    </insert>
+
+    <select id="findById" parameterType="long" resultMap="orderResultMap">
+        SELECT <include refid="orderColumns"/> FROM orders WHERE id = #{id}
+    </select>
+
+    <select id="findAll" resultMap="orderResultMap">
+        SELECT <include refid="orderColumns"/> FROM orders
+    </select>
+
+    <select id="findByUserId" parameterType="long" resultMap="orderResultMap">
+        SELECT <include refid="orderColumns"/> FROM orders WHERE user_id = #{userId}
+    </select>
+
+    <!--
+        ==================== 多对一关联查询 ====================
+
+        <association>：映射"一"的一方
+        与 <collection> 的区别：
+        - <association> 映射的是单个对象（JavaBean）
+        - <collection> 映射的是集合（List/Set）
+
+        方式一：嵌套结果（一条 JOIN SQL）
+    -->
+    <resultMap id="orderWithUserMap" type="com.spring.demo.model.Order" extends="orderResultMap">
+        <!--
+            <association>：多对一映射
+            - property: Order 类中的 User 属性名
+            - javaType: 属性的全限定类型
+            - columnPrefix: 给关联表的列加前缀，避免列名冲突
+        -->
+        <association property="user" javaType="com.spring.demo.model.User"
+                     columnPrefix="u_">
+            <id property="id"         column="id"/>
+            <result property="username"   column="username"/>
+            <result property="email"      column="email"/>
+            <result property="age"        column="age"/>
+        </association>
+    </resultMap>
+
+    <select id="findOrderWithUser" parameterType="long" resultMap="orderWithUserMap">
+        SELECT
+            o.id, o.order_no, o.user_id, o.total_amount, o.status, o.create_time,
+            u.id       AS u_id,
+            u.username AS u_username,
+            u.email    AS u_email,
+            u.age      AS u_age
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        WHERE o.id = #{id}
+    </select>
+
+    <!--
+        ==================== 一对多关联查询 ====================
+
+        Order → OrderItems（<collection>）
+    -->
+    <resultMap id="orderWithItemsMap" type="com.spring.demo.model.Order" extends="orderResultMap">
+        <collection property="orderItems" ofType="com.spring.demo.model.OrderItem"
+                    columnPrefix="oi_">
+            <id property="id"          column="id"/>
+            <result property="orderId"     column="order_id"/>
+            <result property="productName" column="product_name"/>
+            <result property="quantity"    column="quantity"/>
+            <result property="price"       column="price"/>
+        </collection>
+    </resultMap>
+
+    <select id="findOrderWithItems" parameterType="long" resultMap="orderWithItemsMap">
+        SELECT
+            o.id, o.order_no, o.user_id, o.total_amount, o.status, o.create_time,
+            oi.id           AS oi_id,
+            oi.order_id     AS oi_order_id,
+            oi.product_name AS oi_product_name,
+            oi.quantity     AS oi_quantity,
+            oi.price        AS oi_price
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        WHERE o.id = #{id}
+    </select>
+
+    <!-- 完整关联：订单 + 用户 + 订单项 -->
+    <resultMap id="orderFullMap" type="com.spring.demo.model.Order" extends="orderWithUserMap">
+        <collection property="orderItems" ofType="com.spring.demo.model.OrderItem"
+                    columnPrefix="oi_">
+            <id property="id"          column="id"/>
+            <result property="orderId"     column="order_id"/>
+            <result property="productName" column="product_name"/>
+            <result property="quantity"    column="quantity"/>
+            <result property="price"       column="price"/>
+        </collection>
+    </resultMap>
+
+    <select id="findOrderFull" parameterType="long" resultMap="orderFullMap">
+        SELECT
+            o.id, o.order_no, o.user_id, o.total_amount, o.status, o.create_time,
+            u.id       AS u_id,
+            u.username AS u_username,
+            u.email    AS u_email,
+            u.age      AS u_age,
+            oi.id           AS oi_id,
+            oi.order_id     AS oi_order_id,
+            oi.product_name AS oi_product_name,
+            oi.quantity     AS oi_quantity,
+            oi.price        AS oi_price
+        FROM orders o
+        LEFT JOIN users u ON o.user_id = u.id
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        WHERE o.id = #{id}
+    </select>
+
+</mapper>
